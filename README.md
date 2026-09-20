@@ -7,24 +7,22 @@ hackathon's exact scoring schema.
 **Stack:** FastAPI + Groq (LLM inference) + Supabase (persistence) + Vercel (deployment)
 
 ## Architecture
-
-```
 inbox (JSON records)
     │
     ▼
- loader                                  (app/loader.py)
+ loader                (app/loader.py)
     │
     ▼
- classifier            ──────► 🤖 AI     (app/classifier.py)
+ classifier             AI    (app/classifier.py)
     │                                     -> BL_COMPARISON / SI_REQUEST / INVOICE_QUERY / GENERAL / SPAM
     ▼
- attachment finder     ──────► 🤖 AI, if needed   (app/attachment_finder.py)
+ attachment finder      AI, if needed   (app/attachment_finder.py)
     │
     ▼
  document reading      (txt/pdf/docx/xlsx -> text)  (app/document_reader.py)
     │
     ▼
- document extraction   ──────► 🤖 AI     (app/extractor.py)
+ document extraction    AI    (app/extractor.py)
     │
     ▼
  normalization         (Python logic)    (app/normalizer.py)
@@ -43,7 +41,7 @@ CONFIDENT   UNCERTAIN
 OK/MISMATCH  NEEDS_REVIEW (wrong_doc_type / missing_attachment / unreadable / missing_value)
 ```
 
-This was tested against the **real hackathon dataset** (520 emails) — `email_004`'s
+This was tested against the  (520 emails) — `email_004`'s
 consignee/notify_party mismatch was reproduced exactly against the organizers'
 `ground_truth.json`, and all four attachment formats (txt/pdf/docx/xlsx) read correctly.
 The deliberately broken test cases (a corrupted PDF, a commercial invoice mislabeled as a

@@ -24,14 +24,18 @@ Respond with ONLY a JSON object, no other text:
 """
 
 
-def _looks_like_bl_comparison(email: dict) -> bool:
-    text = " ".join(
+def _email_text(email: dict) -> str:
+    return " ".join(
         [
             str(email.get("subject", "")),
             str(email.get("body", "")),
             " ".join(map(str, email.get("attachments", []))),
         ]
     ).lower()
+
+
+def _looks_like_bl_comparison(email: dict) -> bool:
+    text = _email_text(email)
 
     has_si = (
         "shipping instruction" in text
@@ -54,15 +58,53 @@ def _looks_like_bl_comparison(email: dict) -> bool:
     return has_si and has_bl and asks_to_check
 
 
+def _looks_like_invoice_query(email: dict) -> bool:
+    text = _email_text(email)
+
+    invoice_terms = (
+        "invoice",
+        "billing",
+        "billed",
+        "charge",
+        "charges",
+        "payment",
+        "thc",
+        "local charge",
+        "cost breakdown",
+        "breakdown",
+    )
+
+    question_terms = (
+        "query",
+        "please advise",
+        "included",
+        "separately",
+        "how much",
+        "what is",
+        "breakdown",
+    )
+
+    return (
+        any(term in text for term in invoice_terms)
+        and any(term in text for term in question_terms)
+    )
+
+
 def classify_email(email: dict) -> ClassificationResult:
-    # Handle obvious SI-vs-BL checking requests deterministically first.
-    # This prevents clear comparison emails such as email_001 from being
-    # mislabeled GENERAL by the LLM.
+    # Deterministic rules for obvious cases avoid incorrect GENERAL results
+    # when the LLM is unavailable or misclassifies a clear request.
     if _looks_like_bl_comparison(email):
         return ClassificationResult(
             category="BL_COMPARISON",
             confidence=0.95,
             reason="SI/BL comparison request detected.",
+        )
+
+    if _looks_like_invoice_query(email):
+        return ClassificationResult(
+            category="INVOICE_QUERY",
+            confidence=0.95,
+            reason="Invoice or charges query detected.",
         )
 
     user_prompt = (

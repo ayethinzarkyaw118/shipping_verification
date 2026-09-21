@@ -98,6 +98,8 @@ def _build_result(email: dict, inbox: Inbox) -> EmailResult:
             summary="Result is uncertain and needs human review before it can be trusted.",
             needs_review=True,
             escalation=EscalationInfo(reason=validation.review_reason, detail=validation.detail),
+            si_fields=si_fields,
+            bl_fields=bl_fields,
         )
 
     # CONFIDENT -> OK or MISMATCH
@@ -115,6 +117,8 @@ def _build_result(email: dict, inbox: Inbox) -> EmailResult:
         mismatches=mismatches,
         summary=summary,
         needs_review=False,
+        si_fields=si_fields,
+        bl_fields=bl_fields,
     )
 
 

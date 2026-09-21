@@ -41,7 +41,7 @@ CONFIDENT   UNCERTAIN
 OK/MISMATCH  NEEDS_REVIEW (wrong_doc_type / missing_attachment / unreadable / missing_value)
 ```
 
-This was tested against the  (520 emails) — `email_004`'s
+This was tested against the participant bundle (520 emails) — `email_004`'s
 consignee/notify_party mismatch was reproduced exactly against the organizers'
 `ground_truth.json`, and all four attachment formats (txt/pdf/docx/xlsx) read correctly.
 The deliberately broken test cases (a corrupted PDF, a commercial invoice mislabeled as a
@@ -90,13 +90,15 @@ Visit `http://localhost:8000/docs`. Works out of the box against the bundled `de
 
 ## Using the FULL real dataset (for actual scoring)
 
-1. Extract the hackathon's bundle zip into a `data/` folder here (so you have
-   `data/inbox/`, `data/attachments/`).
+1. Put the participant bundle at `data/sdoc-hackathon-bundle.zip`. The app can read
+   the ZIP directly; extraction is not required. When this file exists and
+   `INBOX_SOURCE` is not explicitly set, the deployed API automatically uses all
+   520 emails. The 5-email `demo_data/` folder is still kept for quick testing.
 2. Run:
    ```bash
-   export INBOX_SOURCE=./data
+   export INBOX_SOURCE=./data/sdoc-hackathon-bundle.zip
    export GROQ_API_KEY=your_groq_key
-   python build_submission.py ./data --out submission.json
+   python build_submission.py ./data/sdoc-hackathon-bundle.zip --out submission.json
    ```
 3. To score it against their Docker server (`docker compose up --build` in their
    provided docker package, then):

@@ -4,6 +4,86 @@ Backend API for the Averis x Monash SDOC hackathon use case.
 
 The system classifies shipping-related emails, reads Shipping Instruction (SI) and draft Bill of Lading (BL) attachments, extracts important shipment fields, compares SI vs BL values, and sends uncertain cases to a human-review queue.
 
+## Submission Documentation
+
+### 1. Technical Architecture
+
+The project is deployed as one combined web application:
+
+```text
+User
+  |
+  v
+React + Vite Frontend
+  |
+  | same-origin API requests
+  v
+FastAPI Backend
+  |
+  +--> Email Classifier
+  |      +--> deterministic rules for obvious BL comparison / invoice cases
+  |      `--> Groq LLM for remaining classification
+  |
+  +--> SI / BL Attachment Finder
+  |
+  +--> Document Reader
+  |      TXT / PDF / DOCX / XLSX
+  |
+  +--> Groq Field Extraction
+  |
+  +--> Python Normalization
+  |
+  +--> Python SI-vs-BL Comparison
+  |
+  +--> Validation
+  |      OK / MISMATCH / NEEDS_REVIEW
+  |
+  +--> Supabase
+         email_results + review_queue
+
+Deployment: Vercel
+```
+
+The frontend and backend live in the same GitHub repository. The React/Vite frontend uses relative routes such as `/emails`, `/results/{email_id}`, and `/review-queue`, while Vercel routes those API paths to the FastAPI application.
+
+### 2. Implementation Details
+
+The implementation is designed so AI is used where interpretation is useful, while deterministic Python logic handles decisions that should be repeatable.
+
+- **Email classification:** each message is classified as `BL_COMPARISON`, `SI_REQUEST`, `INVOICE_QUERY`, `GENERAL`, or `SPAM`. Clear BL-comparison and invoice-query patterns are detected before the LLM to reduce avoidable misclassification.
+- **Attachment identification:** SI and BL files are first identified by filename keywords. When filenames are ambiguous, a short document snippet can be sent to the LLM to identify which file is the SI and which is the BL.
+- **Document reading:** the backend supports TXT, PDF, DOCX, and XLSX attachments and converts them into text before extraction.
+- **Field extraction:** Groq extracts seven canonical shipment fields: shipper, consignee, notify party, port of loading, port of discharge, container count, and gross weight.
+- **Normalization:** Python converts values into comparable forms, for example extracting a numeric container count and standardizing gross weight.
+- **Comparison:** normalized SI and BL values are compared field by field. Differences are returned as structured mismatch records.
+- **Validation and human review:** uncertain cases are routed to `NEEDS_REVIEW` with one of the supported reasons: `wrong_doc_type`, `missing_attachment`, `unreadable`, or `missing_value`.
+- **Persistence:** processed results and unresolved review cases are stored in Supabase when configured.
+- **Frontend workflow:** inbox emails are shown individually. The operator checks one email at a time, and a BL-comparison result opens the existing verification view for side-by-side SI/BL review.
+- **Submission generation:** `build_submission.py` creates the required submission JSON and validates the email IDs and output schema against `sample_submission.json` before writing the final file.
+
+### 3. Challenges Faced
+
+Several integration issues had to be solved during development:
+
+- **LLM fallback behavior:** an early classifier failure could incorrectly turn a valid SI/BL comparison request into `GENERAL`. Deterministic rules and clearer error logging were added so obvious comparison requests are handled reliably.
+- **Supabase authentication and Row Level Security:** the first backend configuration used the wrong key type and caused write failures. The server-side integration was updated to support Supabase secret keys while keeping credentials out of the frontend.
+- **Frontend/backend integration:** the original frontend was created separately from the FastAPI service. The final project combines both in one repository and one Vercel deployment without redesigning the existing interface.
+- **Document variability:** shipping documents use different labels and value formats for the same fields. A normalization layer was added so values such as container counts and weights can be compared consistently.
+- **Safe uncertainty handling:** the system must avoid guessing when attachments are missing, unreadable, the wrong type, or contain missing values. These situations are explicitly routed to human review instead of being forced into an OK/MISMATCH decision.
+
+### 4. Future Roadmap
+
+Planned improvements include:
+
+- Add OCR/vision support for scanned or image-only shipping documents.
+- Add retry/backoff and stronger observability for LLM and external-service failures.
+- Persist operator corrections from the human-review screen, not only review resolution status.
+- Add authentication and role-based access for operators and administrators.
+- Add background/batch processing for large inboxes while keeping the one-email-at-a-time review workflow in the UI.
+- Add richer dashboards for classification accuracy, mismatch trends, review volume, and processing latency.
+- Expand normalization for additional shipping-document label variants, units, and carrier-specific formats.
+- Add automated regression tests using representative SI/BL cases before every deployment.
+
 ## Tech Stack
 
 - **FastAPI** — REST API

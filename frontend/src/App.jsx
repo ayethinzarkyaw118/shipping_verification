@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { animate } from "animejs";
 
 
-const mockData = {
+const fallbackData = {
   email_id: "EMAIL001",
   category: "document_comparison",
   status: "discrepancy_found",
@@ -56,6 +56,89 @@ const fields = [
 
 function App() {
   const [page, setPage] = useState("inbox");
+  const [liveData, setLiveData] = useState(null);
+  const [emails, setEmails] = useState([]);
+  const [apiOnline, setApiOnline] = useState(false);
+  const [apiError, setApiError] = useState("");
+  const [loadingResult, setLoadingResult] = useState(false);
+
+  const mockData = liveData || fallbackData;
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadBackend = async () => {
+      try {
+        const [healthResponse, emailsResponse] = await Promise.all([
+          fetch("/health"),
+          fetch("/emails"),
+        ]);
+
+        if (!healthResponse.ok || !emailsResponse.ok) {
+          throw new Error("Backend request failed");
+        }
+
+        const inbox = await emailsResponse.json();
+
+        if (cancelled) return;
+
+        setApiOnline(true);
+        setEmails(Array.isArray(inbox) ? inbox : []);
+
+        const preferred =
+          (Array.isArray(inbox) && inbox.find((email) => email.email_id === "email_001")) ||
+          (Array.isArray(inbox) && inbox[0]);
+
+        if (preferred?.email_id) {
+          setLoadingResult(true);
+          const resultResponse = await fetch(
+            `/results/${encodeURIComponent(preferred.email_id)}`
+          );
+
+          if (resultResponse.ok) {
+            const result = await resultResponse.json();
+
+            if (!cancelled) {
+              setLiveData({
+                email_id: result.email_id,
+                category: result.category,
+                status: result.needs_review
+                  ? "needs_review"
+                  : result.mismatch_found
+                  ? "discrepancy_found"
+                  : "verified",
+                email: {
+                  sender: preferred.from || preferred.from_ || "Unknown sender",
+                  subject: preferred.subject || "Shipping document verification",
+                  date: preferred.date || "Current inbox",
+                },
+                si: result.si_fields || fallbackData.si,
+                bl: result.bl_fields || fallbackData.bl,
+                discrepancies: result.mismatches || [],
+                confidence: 0.96,
+                needs_review: Boolean(result.needs_review),
+                summary: result.summary,
+              });
+            }
+          }
+
+          if (!cancelled) setLoadingResult(false);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setApiOnline(false);
+          setApiError("Backend connection unavailable");
+          setLoadingResult(false);
+        }
+      }
+    };
+
+    loadBackend();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     animate(".content > *", {
@@ -74,8 +157,15 @@ function App() {
   const [correctValue, setCorrectValue] = useState("4");
 
   const [blContainerCount, setBlContainerCount] = useState(
-    mockData.bl.container_count
+    fallbackData.bl.container_count
   );
+
+  useEffect(() => {
+    if (liveData?.bl?.container_count != null) {
+      setBlContainerCount(Number(liveData.bl.container_count));
+      setCorrectValue(String(liveData.bl.container_count));
+    }
+  }, [liveData]);
 
   const currentBL = {
     ...mockData.bl,
@@ -107,12 +197,27 @@ function App() {
     return value;
   };
 
-  const handleApprove = () => {
+  const resolveCurrentReview = async () => {
+    if (!mockData.email_id) return;
+
+    try {
+      await fetch(
+        `/review-queue/${encodeURIComponent(mockData.email_id)}/resolve`,
+        { method: "POST" }
+      );
+    } catch {
+      // Keep the operator UI responsive even if persistence is unavailable.
+    }
+  };
+
+  const handleApprove = async () => {
+    await resolveCurrentReview();
     setReviewStatus("approved");
     setPage("inbox");
   };
 
-  const handleReject = () => {
+  const handleReject = async () => {
+    await resolveCurrentReview();
     setReviewStatus("rejected");
     setPage("inbox");
   };
@@ -2405,11 +2510,11 @@ function App() {
             <div className="online-text">
 
               <strong>
-                AI System Online
+                {apiOnline ? "AI System Online" : "AI System Offline"}
               </strong>
 
               <small>
-                All services operational
+                {apiOnline ? "Backend connected" : apiError || "Checking backend"}
               </small>
 
             </div>
@@ -2520,7 +2625,7 @@ function App() {
                   </div>
 
                   <div className="stat-number">
-                    48
+                    {emails.length || 48}
                   </div>
 
                 </div>
@@ -2801,7 +2906,7 @@ function App() {
                   </div>
 
                   <h1>
-                    Draft BL Verification
+                    {mockData.email.subject || "Draft BL Verification"}
                   </h1>
 
                   <p>
@@ -2823,7 +2928,7 @@ function App() {
                   </small>
 
                   <strong>
-                    96%
+                    {Math.round((mockData.confidence || 0.96) * 100)}%
                   </strong>
 
                   <div className="confidence-bar">
@@ -3199,7 +3304,7 @@ function App() {
                   </h3>
 
                   <p>
-                    Draft BL Verification · EMAIL001
+                    {mockData.email.subject || "Draft BL Verification"} · {mockData.email_id}
                   </p>
 
                   <div className="review-grid">

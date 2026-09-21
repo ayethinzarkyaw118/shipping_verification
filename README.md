@@ -99,7 +99,7 @@ These cases are stored in the Supabase `review_queue` table when Supabase is con
 ## Project Structure
 
 ```text
-shipping_verification_backend/
+shipping_verification/
 |
 |-- api/
 |   `-- index.py                 # Vercel FastAPI entry point
@@ -119,6 +119,12 @@ shipping_verification_backend/
 |   |-- models.py                # Pydantic models
 |   |-- llm_client.py            # Groq client
 |   `-- supabase_client.py      # Result and review-queue persistence
+|
+|-- frontend/                    # Original React/Vite ShipCheck frontend
+|   |-- src/
+|   |-- public/
+|   |-- package.json
+|   `-- vite.config.js
 |
 |-- demo_data/                   # 5-email demo dataset
 |
@@ -188,8 +194,8 @@ If that ZIP exists, it is used automatically. Otherwise the backend falls back t
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/ayethinzarkyaw118/shipping_verification_backend.git
-cd shipping_verification_backend
+git clone https://github.com/ayethinzarkyaw118/shipping_verification.git
+cd shipping_verification
 ```
 
 ### 2. Create a virtual environment
@@ -404,21 +410,20 @@ INBOX_SOURCE
 
 After changing an environment variable, redeploy the Production deployment.
 
-## Frontend Integration
+## Frontend
 
-This repository currently exposes the backend API.
+The original React/Vite frontend is included in `frontend/` and is deployed together with the FastAPI backend.
 
-An existing frontend can connect to it by using the deployed backend URL as its API base URL.
-
-For example:
+The frontend keeps the existing ShipCheck design and uses same-origin API routes:
 
 ```javascript
-fetch(`${API_BASE_URL}/emails`)
-fetch(`${API_BASE_URL}/results/email_001`)
-fetch(`${API_BASE_URL}/review-queue`)
+fetch("/health")
+fetch("/emails")
+fetch("/results/email_001")
+fetch("/review-queue")
 ```
 
-The frontend should process individual emails with `/results/{email_id}` instead of automatically running all emails through `/results`, especially when using the full dataset.
+Emails are checked individually through `/results/{email_id}`; the frontend does not automatically process the whole inbox.
 
 ## Important Notes
 

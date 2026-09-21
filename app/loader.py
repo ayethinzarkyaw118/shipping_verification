@@ -1,4 +1,15 @@
+"""
+Loader for the real hackathon dataset. Matches the organizers' own loader.py
+interface exactly, so this is a drop-in - no other code needs to know whether
+it's reading local files or the Docker server.
 
+Local folder layout expected:
+    <source>/inbox/email_*.json
+    <source>/attachments/...
+    <source>/sample_submission.json
+
+HTTP server: GET /emails, GET /emails/{id}, GET /<attachment path>, POST /submit
+"""
 from __future__ import annotations
 
 import json
@@ -61,3 +72,4 @@ class Inbox:
     def _get_bytes(self, path: str) -> bytes:
         with urllib.request.urlopen(self.source + path) as r:
             return r.read()
+

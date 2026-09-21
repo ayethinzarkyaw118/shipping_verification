@@ -6,14 +6,26 @@ MODEL_NAME = os.environ.get("GROQ_MODEL", "openai/gpt-oss-120b")
 
 # Supabase (stores pipeline results + the human-review queue)
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
-SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "")  # use the service_role key on the backend
+SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "")  # secret/service-role key on backend only
 
-# Dataset source: defaults to the small bundled demo_data/ (5 real emails,
-# one per category) so the app works out of the box. Point this at the full
-# hackathon bundle (or the Docker server) for real scoring:
-#   export INBOX_SOURCE=./data              (extracted hackathon bundle)
-#   export INBOX_SOURCE=http://localhost:8080  (their Docker server)
-INBOX_SOURCE = os.environ.get("INBOX_SOURCE", "./demo_data")
+# Dataset source.
+#
+# If INBOX_SOURCE is explicitly set, that always wins. Otherwise the deployed
+# app automatically uses the full participant bundle when it is present in
+# data/sdoc-hackathon-bundle.zip, and falls back to the 5-email demo dataset.
+#
+# Supported values:
+#   ./data/sdoc-hackathon-bundle.zip  (original participant ZIP; no extraction)
+#   ./data                            (extracted participant bundle)
+#   ./demo_data                       (small 5-email demo)
+#   http://localhost:8080             (organizers' Docker server)
+FULL_BUNDLE_PATH = "./data/sdoc-hackathon-bundle.zip"
+if "INBOX_SOURCE" in os.environ:
+    INBOX_SOURCE = os.environ["INBOX_SOURCE"]
+elif os.path.exists(FULL_BUNDLE_PATH):
+    INBOX_SOURCE = FULL_BUNDLE_PATH
+else:
+    INBOX_SOURCE = "./demo_data"
 
 # The seven fields the comparator checks, and the label variants seen across
 # real-world SI/BL documents. Extend this if the real dataset uses other labels.

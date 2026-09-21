@@ -58,9 +58,16 @@ function App() {
   const [page, setPage] = useState("inbox");
   const [liveData, setLiveData] = useState(null);
   const [emails, setEmails] = useState([]);
+  const [checkedResults, setCheckedResults] = useState({});
+  const [loadingEmailId, setLoadingEmailId] = useState("");
   const [apiOnline, setApiOnline] = useState(false);
   const [apiError, setApiError] = useState("");
-  const [loadingResult, setLoadingResult] = useState(false);
+  const [reviewStatus, setReviewStatus] = useState("pending");
+  const [showCorrect, setShowCorrect] = useState(false);
+  const [correctValue, setCorrectValue] = useState("4");
+  const [blContainerCount, setBlContainerCount] = useState(
+    fallbackData.bl.container_count
+  );
 
   const mockData = liveData || fallbackData;
 
@@ -80,61 +87,14 @@ function App() {
 
         const inbox = await emailsResponse.json();
 
-        if (cancelled) return;
-
-        setApiOnline(true);
-        setEmails(Array.isArray(inbox) ? inbox : []);
-
-        const preferred =
-          (Array.isArray(inbox) && inbox.find((email) => email.email_id === "email_001")) ||
-          (Array.isArray(inbox) && inbox[0]);
-
-        if (preferred?.email_id) {
-          setLoadingResult(true);
-          const resultResponse = await fetch(
-            `/results/${encodeURIComponent(preferred.email_id)}`
-          );
-
-          if (resultResponse.ok) {
-            const result = await resultResponse.json();
-
-            if (!cancelled) {
-              setLiveData({
-                email_id: result.email_id,
-                category: result.category,
-                status: result.needs_review
-                  ? "needs_review"
-                  : result.mismatch_found
-                  ? "discrepancy_found"
-                  : "verified",
-                email: {
-                  sender: preferred.from || preferred.from_ || "Unknown sender",
-                  subject: preferred.subject || "Shipping document verification",
-                  date: preferred.date || "Current inbox",
-                },
-                si: result.si_fields || fallbackData.si,
-                bl: result.bl_fields || fallbackData.bl,
-                discrepancies: result.mismatches || [],
-                confidence: 0.96,
-                needs_review: Boolean(result.needs_review),
-                summary: result.summary,
-              });
-
-              setReviewStatus(
-                result.needs_review || result.mismatch_found
-                  ? "pending"
-                  : "approved"
-              );
-            }
-          }
-
-          if (!cancelled) setLoadingResult(false);
+        if (!cancelled) {
+          setApiOnline(true);
+          setEmails(Array.isArray(inbox) ? inbox : []);
         }
-      } catch (error) {
+      } catch {
         if (!cancelled) {
           setApiOnline(false);
           setApiError("Backend connection unavailable");
-          setLoadingResult(false);
         }
       }
     };
@@ -155,16 +115,6 @@ function App() {
       delay: 60,
     });
   }, [page]);
-
-  const [reviewStatus, setReviewStatus] = useState("pending");
-
-  const [showCorrect, setShowCorrect] = useState(false);
-
-  const [correctValue, setCorrectValue] = useState("4");
-
-  const [blContainerCount, setBlContainerCount] = useState(
-    fallbackData.bl.container_count
-  );
 
   useEffect(() => {
     if (liveData?.bl?.container_count != null) {
@@ -190,6 +140,100 @@ function App() {
   ).length;
 
   const hasPendingReview = reviewStatus === "pending";
+
+  const checkedValues = Object.values(checkedResults);
+  const checkedComparisonCount = checkedValues.filter(
+    (result) => result.category === "BL_COMPARISON"
+  ).length;
+  const checkedMatchedCount = checkedValues.filter(
+    (result) =>
+      result.category === "BL_COMPARISON" &&
+      !result.mismatch_found &&
+      !result.needs_review
+  ).length;
+  const checkedReviewCount = checkedValues.filter(
+    (result) => result.needs_review || result.mismatch_found
+  ).length;
+
+  const categoryLabel = (category) => {
+    const labels = {
+      BL_COMPARISON: "Document Comparison",
+      SI_REQUEST: "New SI Request",
+      INVOICE_QUERY: "Invoice Query",
+      GENERAL: "General",
+      SPAM: "Spam",
+    };
+
+    return labels[category] || "Not checked";
+  };
+
+  const applyComparisonResult = (email, result) => {
+    setLiveData({
+      email_id: result.email_id,
+      category: result.category,
+      status: result.needs_review
+        ? "needs_review"
+        : result.mismatch_found
+        ? "discrepancy_found"
+        : "verified",
+      email: {
+        sender: email.from || email.from_ || "Unknown sender",
+        subject: email.subject || "Shipping document verification",
+        date: email.date || "Current inbox",
+      },
+      si: result.si_fields || fallbackData.si,
+      bl: result.bl_fields || fallbackData.bl,
+      discrepancies: result.mismatches || [],
+      confidence: 0.96,
+      needs_review: Boolean(result.needs_review),
+      summary: result.summary,
+    });
+
+    setReviewStatus(
+      result.needs_review || result.mismatch_found
+        ? "pending"
+        : "approved"
+    );
+    setPage("verification");
+  };
+
+  const checkEmail = async (email) => {
+    const cached = checkedResults[email.email_id];
+
+    if (cached) {
+      if (cached.category === "BL_COMPARISON") {
+        applyComparisonResult(email, cached);
+      }
+      return;
+    }
+
+    setLoadingEmailId(email.email_id);
+
+    try {
+      const response = await fetch(
+        `/results/${encodeURIComponent(email.email_id)}`
+      );
+
+      if (!response.ok) {
+        throw new Error("Could not check email");
+      }
+
+      const result = await response.json();
+
+      setCheckedResults((current) => ({
+        ...current,
+        [email.email_id]: result,
+      }));
+
+      if (result.category === "BL_COMPARISON") {
+        applyComparisonResult(email, result);
+      }
+    } catch {
+      setApiError(`Could not check ${email.email_id}`);
+    } finally {
+      setLoadingEmailId("");
+    }
+  };
 
   const formatValue = (field, value) => {
     if (value === null || value === undefined || value === "") {
@@ -2636,7 +2680,7 @@ function App() {
                   </div>
 
                   <div className="stat-number">
-                    {emails.length || 48}
+                    {checkedValues.length}
                   </div>
 
                 </div>
@@ -2656,7 +2700,7 @@ function App() {
                   </div>
 
                   <div className="stat-number">
-                    21
+                    {checkedComparisonCount}
                   </div>
 
                 </div>
@@ -2676,7 +2720,7 @@ function App() {
                   </div>
 
                   <div className="stat-number">
-                    15
+                    {checkedMatchedCount}
                   </div>
 
                 </div>
@@ -2696,7 +2740,7 @@ function App() {
                   </div>
 
                   <div className="stat-number">
-                    {hasPendingReview ? 2 : 1}
+                    {checkedReviewCount}
                   </div>
 
                 </div>
@@ -2716,7 +2760,7 @@ function App() {
                       </h3>
 
                       <span className="inbox-count">
-                        3
+                        {emails.length}
                       </span>
 
                     </div>
@@ -2728,157 +2772,102 @@ function App() {
                   </div>
 
                   <span className="inbox-panel-meta">
-                    Today · 3 messages
+                    Today · {emails.length} messages
                   </span>
 
                 </div>
 
-                {/* =========================
-                    DOCUMENT COMPARISON EMAIL
-                ========================= */}
+                {emails.map((email) => {
+                  const result = checkedResults[email.email_id];
+                  const needsAction =
+                    result && (result.needs_review || result.mismatch_found);
+                  const isChecking = loadingEmailId === email.email_id;
 
-                <div className="email-row needs-action">
-
-                  <span className="email-priority"></span>
-
-                  <div className="email-icon">
-                    ▣
-                  </div>
-
-                  <div className="email-main">
-
-                    <h4>
-                      Draft BL Verification
-                    </h4>
-
-                    <p>
-                      customer@example.com · 09:42 AM
-                    </p>
-
-                  </div>
-
-                  <span className="email-category">
-                    Document Comparison
-                  </span>
-
-                  {reviewStatus === "pending" ? (
-
-                    <span className="badge badge-warning">
-                      1 mismatch
-                    </span>
-
-                  ) : reviewStatus === "approved" ? (
-
-                    <span className="badge badge-success">
-                      Approved
-                    </span>
-
-                  ) : reviewStatus === "rejected" ? (
-
-                    <span className="badge badge-warning">
-                      Rejected
-                    </span>
-
-                  ) : (
-
-                    <span className="badge badge-success">
-                      Corrected
-                    </span>
-
-                  )}
-
-                  <div className="email-actions">
-
-                    <button
-                      className="primary-btn"
-                      onClick={() => setPage("verification")}
+                  return (
+                    <div
+                      className={`email-row ${
+                        needsAction
+                          ? "needs-action"
+                          : result
+                          ? "classified"
+                          : ""
+                      }`}
+                      key={email.email_id}
                     >
-                      Review
-                    </button>
 
-                  </div>
+                      {needsAction && (
+                        <span className="email-priority"></span>
+                      )}
 
-                </div>
+                      <div className="email-icon">
+                        {result?.category === "BL_COMPARISON"
+                          ? "▣"
+                          : result?.category === "SI_REQUEST"
+                          ? "↗"
+                          : result?.category === "INVOICE_QUERY"
+                          ? "▤"
+                          : "✉"}
+                      </div>
 
-                {/* =========================
-                    SHIPPING INSTRUCTION
-                ========================= */}
+                      <div className="email-main">
 
-                <div className="email-row classified">
+                        <h4>
+                          {email.subject}
+                        </h4>
 
-                  <div className="email-icon">
-                    ↗
-                  </div>
+                        <p>
+                          {email.from || email.from_ || "Unknown sender"} · {email.email_id}
+                        </p>
 
-                  <div className="email-main">
+                      </div>
 
-                    <h4>
-                      New Shipping Instruction
-                    </h4>
+                      <span className="email-category">
+                        {categoryLabel(result?.category)}
+                      </span>
 
-                    <p>
-                      operations@example.com · 09:18 AM
-                    </p>
+                      {result ? (
+                        <span
+                          className={`badge ${
+                            needsAction
+                              ? "badge-warning"
+                              : "badge-success"
+                          }`}
+                        >
+                          {result.needs_review
+                            ? "Needs review"
+                            : result.mismatch_found
+                            ? `${result.mismatches?.length || 1} mismatch`
+                            : "Classified"}
+                        </span>
+                      ) : (
+                        <span className="badge badge-neutral">
+                          Pending
+                        </span>
+                      )}
 
-                  </div>
+                      <div className="email-actions">
 
-                  <span className="email-category">
-                    New SI Request
-                  </span>
+                        <button
+                          className={
+                            needsAction || result?.category === "BL_COMPARISON"
+                              ? "primary-btn"
+                              : "secondary-btn"
+                          }
+                          onClick={() => checkEmail(email)}
+                          disabled={isChecking}
+                        >
+                          {isChecking
+                            ? "Checking..."
+                            : result?.category === "BL_COMPARISON"
+                            ? "Review"
+                            : "View"}
+                        </button>
 
-                  <span className="badge badge-success">
-                    Classified
-                  </span>
+                      </div>
 
-                  <div className="email-actions">
-
-                    <button className="secondary-btn">
-                      View
-                    </button>
-
-                  </div>
-
-                </div>
-
-                {/* =========================
-                    INVOICE QUERY
-                ========================= */}
-
-                <div className="email-row invoice">
-
-                  <div className="email-icon">
-                    ▤
-                  </div>
-
-                  <div className="email-main">
-
-                    <h4>
-                      Invoice Query
-                    </h4>
-
-                    <p>
-                      finance@example.com · 08:55 AM
-                    </p>
-
-                  </div>
-
-                  <span className="email-category">
-                    Invoice Query
-                  </span>
-
-                  <span className="badge badge-neutral">
-                    Classified
-                  </span>
-
-                  <div className="email-actions">
-
-                    <button className="secondary-btn">
-                      View
-                    </button>
-
-                  </div>
-
-                </div>
+                    </div>
+                  );
+                })}
 
               </div>
 

@@ -38,6 +38,10 @@ class EmailResult(BaseModel):
     summary: str
     needs_review: bool = False
     escalation: Optional[EscalationInfo] = None
+    # Included for the dashboard's side-by-side SI/BL view. These fields do
+    # not change the hackathon submission schema.
+    si_fields: Optional[dict] = None
+    bl_fields: Optional[dict] = None
 
 
 class SubmissionEntry(BaseModel):

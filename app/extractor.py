@@ -1,4 +1,13 @@
+"""
+Document extraction stage (the "document extraction" box in the pipeline - AI).
 
+Responsibility: read one SI or BL document and pull out the 7 shipment fields,
+mapping whatever label the document uses (e.g. "Load Port", "POL", "Port of
+Loading") onto the canonical field name. Values are returned AS WRITTEN in the
+document - "3 x 40ft", "22,000 kg" - with no cleanup or parsing. Turning those
+raw strings into clean comparable values is the normalizer's job, not this
+stage's, so this prompt stays focused on one thing: finding the right text.
+"""
 from app.llm_client import call_json
 
 FIELDS = [
@@ -11,47 +20,34 @@ FIELDS = [
     "gross_weight_kg",
 ]
 
-SYSTEM_PROMPT = """
-Extract the shipment details from a Shipping Instruction (SI) or Bill of
-Lading (BL) document.
+SYSTEM_PROMPT = """You extract shipment fields from a Shipping Instruction (SI) or Bill of Lading (BL) document.
 
-The same information may have different labels in different documents.
-For example, "Port of Loading", "Load Port", and "POL" all refer to the
-same field. Similarly, "Gross Weight" and "Gross Weight (kg)" refer to
-the same field. Match these different labels to the standard field names
-below.
+Different documents label the same field differently (e.g. "Port of Loading", "Load Port", and "POL" all
+mean the same field; "Gross Weight", "Gross Weight (kg)" mean the same field). Map whatever label is used
+in the source text onto the canonical field names below.
 
-Extract exactly these 7 fields:
+Extract exactly these fields, as RAW TEXT exactly as written in the document (do not clean up, convert
+units, or parse numbers - just copy the value as it appears):
+- shipper
+- consignee
+- notify_party
+- port_of_loading
+- port_of_discharge
+- container_count   (copy as written, e.g. "3 x 40ft", not converted to a number)
+- gross_weight_kg   (copy as written, e.g. "22,000 kg", not converted to a number)
 
-* shipper
-* consignee
-* notify_party
-* port_of_loading
-* port_of_discharge
-* container_count
-* gross_weight_kg
+If a field is genuinely missing from the document, use null for its value.
 
-Return the values exactly as they appear in the document. won't clean,
-convert, or calculate anything. For example, keep "3 x 40ft" as
-"3 x 40ft" and "22,000 kg" as "22,000 kg".
-
-If a field is not found in the document, return null for that field.
-
-Respond with ONLY a JSON object and no extra text:
-{"shipper": "...", "consignee": "...", "notify_party": "...",
-"port_of_loading": "...", "port_of_discharge": "...",
-"container_count": "...", "gross_weight_kg": "..."}
+Respond with ONLY a JSON object, no other text:
+{"shipper": "...", "consignee": "...", "notify_party": "...", "port_of_loading": "...",
+ "port_of_discharge": "...", "container_count": "...", "gross_weight_kg": "..."}
 """
-
 
 
 def extract_fields(document_text: str) -> dict:
     """
-Returns the 7 required fields as raw text, or None if a field is missing.
-
-If the AI call fails, it raises an LLMError so the program can handle the
-problem properly instead of making up or guessing a value.
-"""
-
+    Returns a dict of the 7 fields as raw strings (or None if missing).
+    Raises LLMError on failure so the caller can escalate rather than guess.
+    """
     result = call_json(SYSTEM_PROMPT, document_text)
     return {field: result.get(field) for field in FIELDS}

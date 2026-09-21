@@ -1,28 +1,22 @@
 """
-Validation stage (normal Python logic, not AI).
+Validation stage (Python logic, not AI).
 
-This stage checks whether the comparison result is reliable enough to be
-marked as OK or MISMATCH, or whether it needs human review. If review is
-needed, it also gives the reason using the four review types required by
-the hackathon: wrong_doc_type, missing_attachment, unreadable, and
-missing_value.
+Decides whether a comparison result can be trusted (OK/MISMATCH) or needs a
+human (NEEDS_REVIEW), and if so, WHY - using exactly the hackathon's four
+review reasons: wrong_doc_type, missing_attachment, unreadable, missing_value.
+(missing_attachment and unreadable are decided earlier in the pipeline, before
+extraction even runs - this stage covers wrong_doc_type and missing_value,
+which can only be known after extraction.)
 
-missing_attachment and unreadable are handled earlier in the pipeline,
-before document extraction. This stage mainly checks wrong_doc_type and
-missing_value, which can only be identified after the document has been
-processed.
+wrong_doc_type: the attachment extracted almost nothing shipping-related -
+    e.g. someone attached a Commercial Invoice instead of the SI/BL. If NONE
+    of the 7 fields could be found in a document, it's very unlikely to
+    actually be an SI or BL, however well the extraction prompt worked.
 
-wrong_doc_type means the document does not look like a proper SI or BL.
-For example, someone may have uploaded a Commercial Invoice instead.
-If none of the 7 required fields can be found, the document is probably
-the wrong type.
-
-missing_value means the document is the correct type, but one or more
-required fields are empty, marked as "N/A", or could not be parsed.
-This means the information is missing from the document itself, rather
-than the document being the wrong type.
+missing_value: the document is genuinely an SI/BL, but SOME field is blank,
+    "N/A", or otherwise couldn't be parsed - a real gap in the source data,
+    not a wrong document.
 """
-
 from __future__ import annotations
 
 from dataclasses import dataclass

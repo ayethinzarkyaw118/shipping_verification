@@ -24,7 +24,47 @@ Respond with ONLY a JSON object, no other text:
 """
 
 
+def _looks_like_bl_comparison(email: dict) -> bool:
+    text = " ".join(
+        [
+            str(email.get("subject", "")),
+            str(email.get("body", "")),
+            " ".join(map(str, email.get("attachments", []))),
+        ]
+    ).lower()
+
+    has_si = (
+        "shipping instruction" in text
+        or "_si" in text
+        or " si " in f" {text} "
+    )
+
+    has_bl = (
+        "bill of lading" in text
+        or "draft bl" in text
+        or "_bl" in text
+        or " bl " in f" {text} "
+    )
+
+    asks_to_check = any(
+        word in text
+        for word in ("check", "compare", "verify", "confirm")
+    )
+
+    return has_si and has_bl and asks_to_check
+
+
 def classify_email(email: dict) -> ClassificationResult:
+    # Handle obvious SI-vs-BL checking requests deterministically first.
+    # This prevents clear comparison emails such as email_001 from being
+    # mislabeled GENERAL by the LLM.
+    if _looks_like_bl_comparison(email):
+        return ClassificationResult(
+            category="BL_COMPARISON",
+            confidence=0.95,
+            reason="SI/BL comparison request detected.",
+        )
+
     user_prompt = (
         f"From: {email.get('from', '')}\n"
         f"Subject: {email.get('subject', '')}\n"
@@ -41,39 +81,6 @@ def classify_email(email: dict) -> ClassificationResult:
             email.get("email_id", "<unknown>"),
             exc,
         )
-
-        text = " ".join(
-            [
-                str(email.get("subject", "")),
-                str(email.get("body", "")),
-                " ".join(map(str, email.get("attachments", []))),
-            ]
-        ).lower()
-
-        has_si = (
-            "shipping instruction" in text
-            or "_si" in text
-            or " si " in f" {text} "
-        )
-
-        has_bl = (
-            "bill of lading" in text
-            or "draft bl" in text
-            or "_bl" in text
-            or " bl " in f" {text} "
-        )
-
-        asks_to_check = any(
-            word in text
-            for word in ("check", "compare", "verify", "confirm")
-        )
-
-        if has_si and has_bl and asks_to_check:
-            return ClassificationResult(
-                category="BL_COMPARISON",
-                confidence=0.85,
-                reason="SI/BL comparison detected.",
-            )
 
         return ClassificationResult(
             category="GENERAL",

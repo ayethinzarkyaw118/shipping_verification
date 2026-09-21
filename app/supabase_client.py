@@ -35,9 +35,13 @@ def _rest_request(
 
     headers = {
         "apikey": SUPABASE_KEY,
-        "Authorization": f"Bearer {SUPABASE_KEY}",
         "Accept": "application/json",
     }
+
+    # New Supabase sb_secret_ keys are API keys, not JWTs. Legacy
+    # service_role keys are JWTs and may also be sent as Bearer tokens.
+    if SUPABASE_KEY.startswith("eyJ"):
+        headers["Authorization"] = f"Bearer {SUPABASE_KEY}"
 
     if payload is not None:
         headers["Content-Type"] = "application/json"

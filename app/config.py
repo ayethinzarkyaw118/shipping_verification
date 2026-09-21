@@ -6,7 +6,7 @@ MODEL_NAME = os.environ.get("GROQ_MODEL", "openai/gpt-oss-120b")
 
 # Supabase (stores pipeline results + the human-review queue)
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
-SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "")  
+SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "")  # use the service_role key on the backend
 
 # Dataset source: defaults to the small bundled demo_data/ (5 real emails,
 # one per category) so the app works out of the box. Point this at the full

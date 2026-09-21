@@ -1,11 +1,17 @@
+from pathlib import Path
+
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 
 from app.config import INBOX_SOURCE
 from app.loader import Inbox
 from app.models import EmailResult
 from app.pipeline import build_submission, process_email, run_pipeline
 from app.supabase_client import get_review_queue, is_configured, resolve_review
+
+FRONTEND_DIR = Path(__file__).resolve().parent.parent / "frontend"
+
 
 app = FastAPI(
     title="Shipping Document Verification API",
@@ -19,6 +25,22 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.get("/", include_in_schema=False)
+def frontend_home():
+    """Serve the combined frontend from the same deployment as the API."""
+    return FileResponse(FRONTEND_DIR / "index.html")
+
+
+@app.get("/app.js", include_in_schema=False)
+def frontend_js():
+    return FileResponse(FRONTEND_DIR / "app.js", media_type="application/javascript")
+
+
+@app.get("/styles.css", include_in_schema=False)
+def frontend_css():
+    return FileResponse(FRONTEND_DIR / "styles.css", media_type="text/css")
 
 
 @app.get("/health")

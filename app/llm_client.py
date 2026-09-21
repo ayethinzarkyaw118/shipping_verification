@@ -1,4 +1,11 @@
+"""
+Thin wrapper around Groq's chat completions API (OpenAI-compatible, free tier).
 
+Centralizing the call here means:
+- classifier.py and extractor.py don't repeat API boilerplate
+- swapping models/providers, adding retries, or adding logging happens in one place
+- it's easy to mock in tests without hitting the network
+"""
 from __future__ import annotations
 
 import json
@@ -24,7 +31,7 @@ def _strip_code_fences(text: str) -> str:
 
 def call_json(system_prompt: str, user_prompt: str, max_tokens: int = 1024) -> dict:
     """
-    Calling the model with instructions to return ONLY a JSON object, and parse it.
+    Call the model with instructions to return ONLY a JSON object, and parse it.
     Raises LLMError if the client isn't configured or the response isn't valid JSON.
     """
     if _client is None:
@@ -50,3 +57,4 @@ def call_json(system_prompt: str, user_prompt: str, max_tokens: int = 1024) -> d
         return json.loads(cleaned)
     except json.JSONDecodeError as exc:
         raise LLMError(f"Could not parse LLM output as JSON: {raw_text!r}") from exc
+

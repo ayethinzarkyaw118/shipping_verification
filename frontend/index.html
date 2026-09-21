@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ShipCheck — Shipping Document Verification</title>
+  <meta name="description" content="AI-assisted shipping document verification dashboard">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">SC</div>
+        <div>
+          <div class="brand-name">ShipCheck</div>
+          <div class="brand-subtitle">Document Verification</div>
+        </div>
+      </div>
+
+      <nav class="nav">
+        <button class="nav-item active" data-view="inbox">
+          <span>Inbox</span>
+          <span id="inboxCount" class="count-pill">0</span>
+        </button>
+        <button class="nav-item" data-view="review">
+          <span>Human Review</span>
+          <span id="reviewCount" class="count-pill">0</span>
+        </button>
+        <a class="nav-item link" href="/docs" target="_blank" rel="noreferrer">
+          <span>API Docs</span>
+          <span>↗</span>
+        </a>
+      </nav>
+
+      <div class="system-card">
+        <div class="system-row">
+          <span class="status-dot" id="apiDot"></span>
+          <span>API</span>
+          <strong id="apiStatus">Checking…</strong>
+        </div>
+        <div class="system-row">
+          <span class="status-dot" id="dbDot"></span>
+          <span>Supabase</span>
+          <strong id="dbStatus">Checking…</strong>
+        </div>
+        <div class="dataset-row">
+          <span>Dataset</span>
+          <strong id="datasetStatus">—</strong>
+        </div>
+      </div>
+    </aside>
+
+    <main class="workspace">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">Shipping operations</p>
+          <h1 id="pageTitle">Inbox verification</h1>
+        </div>
+        <div class="topbar-actions">
+          <button id="refreshBtn" class="button secondary">Refresh</button>
+        </div>
+      </header>
+
+      <section id="inboxView" class="view active">
+        <div class="inbox-grid">
+          <section class="panel email-list-panel">
+            <div class="panel-header">
+              <div>
+                <h2>Emails</h2>
+                <p id="emailListMeta">Loading inbox…</p>
+              </div>
+            </div>
+
+            <div class="search-wrap">
+              <input id="searchInput" type="search" placeholder="Search sender, subject or ID">
+            </div>
+
+            <div id="emailList" class="email-list" aria-live="polite"></div>
+          </section>
+
+          <section class="panel detail-panel">
+            <div id="emptyState" class="empty-state">
+              <div class="empty-icon">✦</div>
+              <h2>Select an email</h2>
+              <p>Choose an email from the inbox to inspect it and run verification.</p>
+            </div>
+
+            <div id="emailDetail" class="email-detail hidden">
+              <div class="detail-header">
+                <div>
+                  <div class="detail-id" id="detailId"></div>
+                  <h2 id="detailSubject"></h2>
+                  <p id="detailFrom"></p>
+                </div>
+                <button id="verifyBtn" class="button primary">Run verification</button>
+              </div>
+
+              <div class="detail-section">
+                <h3>Message</h3>
+                <div id="detailBody" class="message-body"></div>
+              </div>
+
+              <div class="detail-section">
+                <h3>Attachments</h3>
+                <div id="attachmentList" class="attachments"></div>
+              </div>
+
+              <div id="resultSection" class="result-section hidden">
+                <div class="result-heading">
+                  <h3>Verification result</h3>
+                  <span id="categoryBadge" class="badge"></span>
+                </div>
+
+                <div id="resultSummary" class="result-summary"></div>
+                <div id="resultMetrics" class="metric-grid"></div>
+
+                <div id="escalationBox" class="alert hidden"></div>
+
+                <div id="mismatchWrap" class="hidden">
+                  <h3>Field mismatches</h3>
+                  <div class="table-wrap">
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>Field</th>
+                          <th>Shipping Instruction</th>
+                          <th>Draft BL</th>
+                        </tr>
+                      </thead>
+                      <tbody id="mismatchTable"></tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <section id="reviewView" class="view">
+        <section class="panel review-panel">
+          <div class="panel-header review-header">
+            <div>
+              <h2>Human review queue</h2>
+              <p>Cases the automated pipeline could not verify confidently.</p>
+            </div>
+            <button id="refreshReviewBtn" class="button secondary">Refresh queue</button>
+          </div>
+          <div id="reviewList" class="review-list"></div>
+        </section>
+      </section>
+    </main>
+  </div>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script src="/app.js" defer></script>
+</body>
+</html>

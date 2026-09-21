@@ -2,6 +2,10 @@ from app.config import EMAIL_CATEGORIES
 from app.llm_client import LLMError, call_json
 from app.models import ClassificationResult
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 SYSTEM_PROMPT = f"""classify incoming emails for a shipping operations inbox.
 
 Categories (use exactly one, exact spelling):
@@ -25,7 +29,7 @@ def classify_email(email: dict) -> ClassificationResult:
         f"Body:\n{email.get('body', '')}\n"
         f"Attachments: {email.get('attachments', [])}\n"
     )
-   try:
+    try:
         result = call_json(SYSTEM_PROMPT, user_prompt)
     except LLMError:
         logger.exception("Groq classification failed")
@@ -34,3 +38,4 @@ def classify_email(email: dict) -> ClassificationResult:
             confidence=0.0,
             reason="classification failed",
     )
+

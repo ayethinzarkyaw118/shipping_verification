@@ -36,4 +36,3 @@ STATUS_MISMATCH = "MISMATCH"
 STATUS_NEEDS_REVIEW = "NEEDS_REVIEW"
 
 REVIEW_REASONS = ["wrong_doc_type", "missing_attachment", "unreadable", "missing_value"]
-

@@ -23,7 +23,16 @@ app.add_middleware(
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "supabase_configured": is_configured()}
+    inbox = Inbox(INBOX_SOURCE)
+    try:
+        email_count = len(inbox.emails())
+    except Exception:
+        email_count = None
+    return {
+        "status": "ok",
+        "supabase_configured": is_configured(),
+        "email_count": email_count,
+    }
 
 
 @app.get("/emails")

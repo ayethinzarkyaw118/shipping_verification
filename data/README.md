@@ -1,0 +1,1 @@
+# Full hackathon dataset\n\nPlace the participant bundle here as `sdoc-hackathon-bundle.zip`.\n\nDo not add the Docker/scoring package or `ground_truth.json` to the production app.\n

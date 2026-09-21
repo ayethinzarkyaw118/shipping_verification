@@ -119,6 +119,12 @@ function App() {
                 needs_review: Boolean(result.needs_review),
                 summary: result.summary,
               });
+
+              setReviewStatus(
+                result.needs_review || result.mismatch_found
+                  ? "pending"
+                  : "approved"
+              );
             }
           }
 
@@ -186,8 +192,13 @@ function App() {
   const hasPendingReview = reviewStatus === "pending";
 
   const formatValue = (field, value) => {
+    if (value === null || value === undefined || value === "") {
+      return "Not available";
+    }
+
     if (field === "gross_weight_kg") {
-      return `${value.toLocaleString()} kg`;
+      const numeric = Number(value);
+      return `${Number.isFinite(numeric) ? numeric.toLocaleString() : value} kg`;
     }
 
     if (field === "container_count") {

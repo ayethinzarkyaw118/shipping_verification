@@ -58,6 +58,42 @@ def _looks_like_bl_comparison(email: dict) -> bool:
     return has_si and has_bl and asks_to_check
 
 
+def _looks_like_si_request(email: dict) -> bool:
+    text = _email_text(email)
+    subject = str(email.get("subject", "")).lower()
+
+    request_terms = (
+        "request si",
+        "shipping instruction",
+        "please find shipping instruction",
+        "new shipping instruction",
+    )
+
+    return (
+        any(term in subject for term in ("request si", "new shipping instruction"))
+        or (
+            any(term in text for term in request_terms)
+            and not _looks_like_bl_comparison(email)
+        )
+    )
+
+
+def _looks_like_spam(email: dict) -> bool:
+    text = _email_text(email)
+
+    spam_terms = (
+        "one weird trick",
+        "verify your account",
+        "mailbox has exceeded",
+        "storage limit",
+        "crypto-invest",
+        "avoid deactivation",
+        "webmail-verify",
+    )
+
+    return any(term in text for term in spam_terms)
+
+
 def _looks_like_invoice_query(email: dict) -> bool:
     text = _email_text(email)
 
@@ -100,11 +136,25 @@ def classify_email(email: dict) -> ClassificationResult:
             reason="SI/BL comparison request detected.",
         )
 
+    if _looks_like_si_request(email):
+        return ClassificationResult(
+            category="SI_REQUEST",
+            confidence=0.95,
+            reason="New Shipping Instruction request detected.",
+        )
+
     if _looks_like_invoice_query(email):
         return ClassificationResult(
             category="INVOICE_QUERY",
             confidence=0.95,
             reason="Invoice or charges query detected.",
+        )
+
+    if _looks_like_spam(email):
+        return ClassificationResult(
+            category="SPAM",
+            confidence=0.99,
+            reason="Spam or phishing indicators detected.",
         )
 
     user_prompt = (

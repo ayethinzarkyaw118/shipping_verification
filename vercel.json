@@ -15,7 +15,7 @@
   ],
   "routes": [
     { "src": "/health", "dest": "api/index.py" },
-    { "src": "/emails", "dest": "api/index.py" },
+    { "src": "/emails(?:/.*)?", "dest": "api/index.py" },
     { "src": "/results(?:/.*)?", "dest": "api/index.py" },
     { "src": "/submission", "dest": "api/index.py" },
     { "src": "/review-queue(?:/.*)?", "dest": "api/index.py" },

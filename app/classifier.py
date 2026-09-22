@@ -94,6 +94,24 @@ def _looks_like_spam(email: dict) -> bool:
     return any(term in text for term in spam_terms)
 
 
+def _looks_like_general_update(email: dict) -> bool:
+    text = _email_text(email)
+    subject = str(email.get("subject", "")).lower()
+
+    update_terms = (
+        "update summary",
+        "status update",
+        "outstanding bl",
+        "outstanding bill of lading",
+        "pending items",
+        "kindly action",
+        "for your information",
+        "fyi",
+    )
+
+    return any(term in subject or term in text for term in update_terms)
+
+
 def _looks_like_invoice_query(email: dict) -> bool:
     text = _email_text(email)
 
@@ -155,6 +173,13 @@ def classify_email(email: dict) -> ClassificationResult:
             category="SPAM",
             confidence=0.99,
             reason="Spam or phishing indicators detected.",
+        )
+
+    if _looks_like_general_update(email):
+        return ClassificationResult(
+            category="GENERAL",
+            confidence=0.95,
+            reason="Operational update detected.",
         )
 
     user_prompt = (

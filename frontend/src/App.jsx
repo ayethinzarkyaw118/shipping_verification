@@ -200,12 +200,22 @@ function App() {
     setPage("verification");
   };
 
+  const viewEmail = (email) => {
+    window.open(
+      `/emails/${encodeURIComponent(email.email_id)}`,
+      "_blank",
+      "noopener,noreferrer"
+    );
+  };
+
   const checkEmail = async (email) => {
     const cached = checkedResults[email.email_id];
 
     if (cached) {
       if (cached.category === "BL_COMPARISON") {
         applyComparisonResult(email, cached);
+      } else {
+        viewEmail(email);
       }
       return;
     }
@@ -230,6 +240,8 @@ function App() {
 
       if (result.category === "BL_COMPARISON") {
         applyComparisonResult(email, result);
+      } else {
+        viewEmail(email);
       }
     } catch {
       setApiError(`Could not check ${email.email_id}`);

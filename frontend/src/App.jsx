@@ -202,7 +202,7 @@ function App() {
 
   const viewEmail = (email) => {
     window.open(
-      `/emails/${encodeURIComponent(email.email_id)}`,
+      `/email-view/${encodeURIComponent(email.email_id)}`,
       "_blank",
       "noopener,noreferrer"
     );

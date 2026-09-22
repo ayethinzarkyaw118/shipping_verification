@@ -152,7 +152,9 @@ function App() {
       !result.needs_review
   ).length;
   const checkedReviewCount = checkedValues.filter(
-    (result) => result.needs_review || result.mismatch_found
+    (result) =>
+      !["approved", "rejected", "corrected"].includes(result.review_status) &&
+      (result.needs_review || result.mismatch_found)
   ).length;
 
   const categoryLabel = (category) => {
@@ -190,9 +192,10 @@ function App() {
     });
 
     setReviewStatus(
-      result.needs_review || result.mismatch_found
-        ? "pending"
-        : "approved"
+      result.review_status ||
+        (result.needs_review || result.mismatch_found
+          ? "pending"
+          : "approved")
     );
     setPage("verification");
   };
@@ -267,17 +270,43 @@ function App() {
 
   const handleApprove = async () => {
     await resolveCurrentReview();
+
+    setCheckedResults((current) => {
+      const existing = current[mockData.email_id] || {};
+      return {
+        ...current,
+        [mockData.email_id]: {
+          ...existing,
+          review_status: "approved",
+          needs_review: false,
+        },
+      };
+    });
+
     setReviewStatus("approved");
     setPage("inbox");
   };
 
   const handleReject = async () => {
     await resolveCurrentReview();
+
+    setCheckedResults((current) => {
+      const existing = current[mockData.email_id] || {};
+      return {
+        ...current,
+        [mockData.email_id]: {
+          ...existing,
+          review_status: "rejected",
+          needs_review: false,
+        },
+      };
+    });
+
     setReviewStatus("rejected");
     setPage("inbox");
   };
 
-  const handleCorrectValue = () => {
+  const handleCorrectValue = async () => {
     if (!showCorrect) {
       setShowCorrect(true);
       return;
@@ -289,7 +318,47 @@ function App() {
       return;
     }
 
+    await resolveCurrentReview();
+
     setBlContainerCount(newValue);
+
+    setLiveData((current) =>
+      current
+        ? {
+            ...current,
+            bl: {
+              ...current.bl,
+              container_count: newValue,
+            },
+            discrepancies: (current.discrepancies || []).filter(
+              (item) => item.field !== "container_count"
+            ),
+            status: "verified",
+            needs_review: false,
+          }
+        : current
+    );
+
+    setCheckedResults((current) => {
+      const existing = current[mockData.email_id] || {};
+      return {
+        ...current,
+        [mockData.email_id]: {
+          ...existing,
+          review_status: "corrected",
+          needs_review: false,
+          mismatch_found: false,
+          mismatches: (existing.mismatches || []).filter(
+            (item) => item.field !== "container_count"
+          ),
+          bl_fields: {
+            ...(existing.bl_fields || mockData.bl),
+            container_count: newValue,
+          },
+        },
+      };
+    });
+
     setReviewStatus("corrected");
     setShowCorrect(false);
     setPage("inbox");
@@ -2779,8 +2848,13 @@ function App() {
 
                 {emails.map((email) => {
                   const result = checkedResults[email.email_id];
+                  const resolvedDecision = ["approved", "rejected", "corrected"].includes(
+                    result?.review_status
+                  );
                   const needsAction =
-                    result && (result.needs_review || result.mismatch_found);
+                    result &&
+                    !resolvedDecision &&
+                    (result.needs_review || result.mismatch_found);
                   const isChecking = loadingEmailId === email.email_id;
 
                   return (
@@ -2833,7 +2907,13 @@ function App() {
                               : "badge-success"
                           }`}
                         >
-                          {result.needs_review
+                          {result.review_status === "approved"
+                            ? "Approved"
+                            : result.review_status === "rejected"
+                            ? "Rejected"
+                            : result.review_status === "corrected"
+                            ? "Corrected"
+                            : result.needs_review
                             ? "Needs review"
                             : result.mismatch_found
                             ? `${result.mismatches?.length || 1} mismatch`

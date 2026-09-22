@@ -42,6 +42,16 @@ def list_emails():
     return inbox.emails()
 
 
+@app.get("/emails/{email_id}")
+def get_email(email_id: str):
+    """Return one raw email so the existing frontend View button can show its details."""
+    inbox = Inbox(INBOX_SOURCE)
+    try:
+        return inbox.get(email_id)
+    except (FileNotFoundError, OSError, KeyError):
+        raise HTTPException(status_code=404, detail=f"Email {email_id} not found")
+
+
 @app.get("/results", response_model=list[EmailResult])
 def get_all_results():
     """Run the full pipeline over every email, persisting each to Supabase."""
